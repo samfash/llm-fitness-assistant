@@ -1,0 +1,21 @@
+name: Deploy to Hugging Face Space
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push to Hugging Face Space
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git clone https://huggingface.co/spaces/sam351/llm-fitness-assistant hf_space
+          cp -r * hf_space/
+          cd hf_space
+          git add .
+          git commit -m "Auto-deploy from GitHub"
+          git push https://$HF_TOKEN@huggingface.co/spaces/351/llm-fitness-assistant main
