@@ -1,0 +1,13 @@
+{
+  "description": "Generate a progressive workout plan based on tracked sessions",
+  "request": {
+    "method": "POST",
+    "endpoint": "/query",
+    "body": {
+      "user_input": "Create my next 3-day strength workout based on what I did last week."
+    }
+  },
+  "expected_response": {
+    "response": "Since last week you completed push-pull splits, this week we’ll focus on legs, abs, and functional conditioning..."
+  }
+}

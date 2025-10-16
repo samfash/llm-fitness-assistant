@@ -1,0 +1,13 @@
+{
+  "description": "Summarize user progress based on tracked workouts and meals",
+  "request": {
+    "method": "POST",
+    "endpoint": "/query",
+    "body": {
+      "user_input": "Summarize my progress this week."
+    }
+  },
+  "expected_response": {
+    "response": "You completed 4 workouts this week and maintained an average calorie intake of 2200 kcal. Great consistency!"
+  }
+}

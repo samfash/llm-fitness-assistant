@@ -1,0 +1,13 @@
+{
+  "description": "Simple workout query",
+  "request": {
+    "method": "POST",
+    "endpoint": "/query",
+    "body": {
+      "user_input": "Give me a 2-day home workout plan for weight loss."
+    }
+  },
+  "expected_response": {
+    "response": "Here's a 2-day home workout plan focused on weight loss: Day 1 - Cardio circuit (burpees, squats, pushups)..."
+  }
+}

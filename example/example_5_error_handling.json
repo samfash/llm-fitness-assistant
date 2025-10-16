@@ -1,0 +1,13 @@
+{
+  "description": "Handle missing or invalid query",
+  "request": {
+    "method": "POST",
+    "endpoint": "/query",
+    "body": {
+      "user_input": ""
+    }
+  },
+  "expected_response": {
+    "error": "Empty query received. Please provide a valid fitness-related question or update."
+  }
+}

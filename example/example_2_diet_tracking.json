@@ -1,0 +1,13 @@
+{
+  "description": "Track user diet and provide analysis",
+  "request": {
+    "method": "POST",
+    "endpoint": "/query",
+    "body": {
+      "user_input": "I had 2 eggs, bread, and tea for breakfast. Track this for me."
+    }
+  },
+  "expected_response": {
+    "response": "Logged your breakfast. Approx. 350 kcal with 15g protein. I’ll track this in your daily summary."
+  }
+}

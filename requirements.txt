@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+transformers
+peft
+openai
+chromadb
+sentence-transformers
+streamlit
+torch
+langchain
+pydantic
+accelerate
+huggingface_hub

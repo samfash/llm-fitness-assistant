@@ -1,0 +1,59 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1e99193b-3c88-4efb-918f-074a7f9c718d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "1. /api/app.py        → FastAPI service\n",
+    "2. /core/rag.py       → Retrieval system (RAG)\n",
+    "3. /core/llm_engine.py → Model + LoRA logic\n",
+    "4. /core/memory.py    → User memory system\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d4825172-d44e-409b-adde-dae78ee5f64a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "fitness_assistant/\n",
+    "│\n",
+    "├── api/\n",
+    "│   └── app.py\n",
+    "│\n",
+    "├── core/\n",
+    "│   ├── rag.py\n",
+    "│   ├── llm_engine.py\n",
+    "│   └── memory.py\n",
+    "│\n",
+    "├── requirements.txt\n",
+    "└── Dockerfile\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python (tf_GPU)",
+   "language": "python",
+   "name": "tf_gpu"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.10"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
