@@ -23,7 +23,13 @@ jobs:
           git clone https://huggingface.co/spaces/sam351/llm-fitness-assistant hf_space
 
           # Copy everything except the hf_space folder itself and .git folder
-          rsync -av --exclude 'hf_space' --exclude '.git' ./ hf_space/
+          rsync -av \
+            --exclude 'hf_space' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.idea' \
+            --exclude '*.png' \
+            ./ hf_space/
 
           cd hf_space
 
