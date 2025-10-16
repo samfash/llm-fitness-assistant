@@ -14,7 +14,7 @@ This assistant helps users track workouts, manage diet, and stay motivated — c
 ---
 ## 🚀 Live Demo
 
-👉 Try it here: [Hugging Face Space Link](https://huggingface.co/spaces/sam351/fitness-assistant)
+👉 Try it here: [Hugging Face Space Link](https://huggingface.co/spaces/sam351/llm-fitness-assistant)
 
 ---
 
