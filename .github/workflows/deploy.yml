@@ -7,15 +7,26 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Push to Hugging Face Space
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
+
+          # Clone your Hugging Face Space repo
           git clone https://huggingface.co/spaces/sam351/llm-fitness-assistant hf_space
-          cp -r * hf_space/
+
+          # Copy everything except the hf_space folder itself and .git folder
+          rsync -av --exclude 'hf_space' --exclude '.git' ./ hf_space/
+
           cd hf_space
+
           git add .
-          git commit -m "Auto-deploy from GitHub"
-          git push https://$HF_TOKEN@huggingface.co/spaces/351/llm-fitness-assistant main
+          git commit -m "Auto-deploy from GitHub" || echo "No changes to commit"
+          git push https://$HF_TOKEN@huggingface.co/spaces/sam351/llm-fitness-assistant main
