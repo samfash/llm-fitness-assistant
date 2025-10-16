@@ -1,3 +1,13 @@
+---
+title: LLM Fitness Assistant
+emoji: 🏋️‍♂️
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: "1.38.0"
+app_file: app.py
+pinned: false
+---
 <p align="center">
   <img src="assets/banner.png" alt="LLM Fitness Assistant Banner" width="250">
 </p>
