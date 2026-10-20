@@ -1,15 +1,14 @@
-import requests, json
+import json
+from pathlib import Path
 
-BASE_URL = "http://127.0.0.1:8000/query"
+import requests
 
-examples = [
-    "example_1_basic_query.json",
-    "example_2_diet_tracking.json",
-    "example_3_workout_planner.json"
-]
+BASE_URL = "http://127.0.0.1:8000/chat"
+here = Path(__file__).parent
 
-for file in examples:
-    data = json.load(open(f"examples/{file}"))
-    r = requests.post(BASE_URL, json=data["request"]["body"])
-    print(f"\n🔹 {file}")
-    print("Response:", r.json())
+for f in sorted(here.glob("example_*.json")):
+    body = json.loads(f.read_text())["request"]["body"]
+    payload = {"user_id": "test", "prompt": body["user_input"]}
+    r = requests.post(BASE_URL, json=payload, timeout=120)
+    print(f"\n{f.name} -> {r.status_code}")
+    print(r.json())

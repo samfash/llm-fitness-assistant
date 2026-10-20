@@ -2,7 +2,7 @@
   "description": "Generate a progressive workout plan based on tracked sessions",
   "request": {
     "method": "POST",
-    "endpoint": "/query",
+    "endpoint": "/chat",
     "body": {
       "user_input": "Create my next 3-day strength workout based on what I did last week."
     }

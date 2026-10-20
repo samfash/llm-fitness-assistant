@@ -1,54 +1,35 @@
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
-from core.rag_with_semantic_retriever import retrieve_context
-from core.llm_engine import generate_response
-from core.memory import memory_store, get_user_context
+# Optional standalone REST API:  uvicorn api.api_server:app --reload
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-app = FastAPI(
-    title="LLM Fitness Assistant API",
-    description="Backend API for the LLM Fitness Assistant using LangChain + LoRA + Chroma.",
-    version="1.0"
-)
+from core.llm_engine import generate_response
+from core.memory import get_user_context, memory_store
+from core.rag_with_semantic_retriever import retrieve_context
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="LLM Fitness Assistant API", version="1.0")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
 
 class Query(BaseModel):
-    user_id: str
+    user_id: str = "default"
     prompt: str
 
+
 @app.post("/chat")
-async def chat(query: Query):
-    user_context = get_user_context(query.user_id)
+def chat(query: Query):
     user_input = query.prompt.strip()
     if not user_input:
         raise HTTPException(status_code=400, detail="Empty query received.")
-
-    retrieved_knowledge = retrieve_context(user_input)
-
-    final_prompt = f"""
-    You are a personal fitness assistant.
-    Use user’s past logs and external data to respond helpfully.
-
-    Past context: {user_context}
-    Retrieved data: {retrieved_knowledge}
-    User input: {user_input}
-    """
-
-    response = generate_response(final_prompt)
-    memory_store(query.user_id, user_input, response)
-
     try:
-        return {"assistant_reply": response}
+        knowledge = retrieve_context(user_input)
+        reply = generate_response(user_input, get_user_context(query.user_id), knowledge)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Server error: {e}")
+    memory_store(query.user_id, user_input, reply)
+    return {"assistant_reply": reply}
+
 
 @app.get("/")
 def root():
-    return {"message": "LLM Fitness Assistant API is running 🚀"}
+    return {"message": "LLM Fitness Assistant API is running"}

@@ -2,7 +2,7 @@
   "description": "Handle missing or invalid query",
   "request": {
     "method": "POST",
-    "endpoint": "/query",
+    "endpoint": "/chat",
     "body": {
       "user_input": ""
     }

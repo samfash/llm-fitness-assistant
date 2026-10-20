@@ -1,39 +1,33 @@
-import chromadb
-from sentence_transformers import SentenceTransformer
+from functools import lru_cache
 
-# Initialize embedding model and Chroma DB
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-chroma_client = chromadb.Client()
-collection = chroma_client.get_or_create_collection(name="fitness_knowledge")
-
-# Add your knowledge base (this could be a list of paragraphs, diet plans, etc.)
-docs = [
+DOCS = [
     "Protein-rich meals help repair muscle tissue after workouts.",
     "Hydration improves recovery and energy levels.",
     "Cardio workouts like running and cycling improve heart health.",
     "Resistance training builds muscle strength and tone.",
-    "Eating complex carbs before a workout provides sustained energy."
+    "Eating complex carbs before a workout provides sustained energy.",
 ]
 
-# Add them to the vector store (once)
-for i, d in enumerate(docs):
-    collection.add(
-        ids=[f"doc_{i}"],
-        documents=[d],
-        embeddings=[embedding_model.encode(d).tolist()]
+
+@lru_cache(maxsize=1)
+def _store():
+    """Built lazily on first query, not at import time."""
+    import chromadb
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    client = chromadb.EphemeralClient()
+    col = client.get_or_create_collection(name="fitness_knowledge")
+    col.upsert(
+        ids=[f"doc_{i}" for i in range(len(DOCS))],
+        documents=DOCS,
+        embeddings=model.encode(DOCS).tolist(),
     )
+    return model, col
+
 
 def retrieve_context(query, top_k=2):
-    """Retrieve top similar documents based on semantic similarity."""
-    query_emb = embedding_model.encode(query).tolist()
-    results = collection.query(
-        query_embeddings=[query_emb],
-        n_results=top_k
-    )
-
-    # Combine retrieved docs into one context string
-    if results["documents"]:
-        context = " ".join(results["documents"][0])
-    else:
-        context = ""
-    return context
+    model, col = _store()
+    res = col.query(query_embeddings=[model.encode(query).tolist()], n_results=top_k)
+    docs = res.get("documents") or [[]]
+    return " ".join(docs[0])

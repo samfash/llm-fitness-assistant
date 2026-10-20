@@ -1,0 +1,4 @@
+# Only needed for the optional local LoRA path
+-r requirements.txt
+peft>=0.12
+accelerate>=0.33

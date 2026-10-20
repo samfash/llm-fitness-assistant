@@ -2,7 +2,7 @@
   "description": "Track user diet and provide analysis",
   "request": {
     "method": "POST",
-    "endpoint": "/query",
+    "endpoint": "/chat",
     "body": {
       "user_input": "I had 2 eggs, bread, and tea for breakfast. Track this for me."
     }

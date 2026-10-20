@@ -2,7 +2,7 @@
   "description": "Summarize user progress based on tracked workouts and meals",
   "request": {
     "method": "POST",
-    "endpoint": "/query",
+    "endpoint": "/chat",
     "body": {
       "user_input": "Summarize my progress this week."
     }

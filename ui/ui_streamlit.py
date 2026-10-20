@@ -13,7 +13,8 @@ st.set_page_config(
     layout="centered",
 )
 
-API_URL = "http://127.0.0.1:8000/chat"   # ← Replace with your deployed FastAPI endpoint
+import os, uuid
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/chat")
 
 # -------------------------------
 # 🎯 SESSION STATE INITIALIZATION
@@ -51,10 +52,12 @@ if prompt := st.chat_input("Type your question or log an activity (e.g. 'I did p
     # 🔗 SEND REQUEST TO FASTAPI BACKEND
     # -------------------------------
     try:
-        payload = {"user_input": prompt}
-        response = requests.post(API_URL, json=payload)
+        if "user_id" not in st.session_state:
+            st.session_state.user_id = str(uuid.uuid4())
+        payload = {"user_id": st.session_state.user_id, "prompt": prompt}
+        response = requests.post(API_URL, json=payload, timeout=120)
         if response.status_code == 200:
-            reply = response.json().get("response", "No response from model.")
+            reply = response.json().get("assistant_reply", "No response from model.")
         else:
             reply = f"⚠️ Error {response.status_code}: {response.text}"
     except Exception as e:

@@ -2,7 +2,7 @@
   "description": "Simple workout query",
   "request": {
     "method": "POST",
-    "endpoint": "/query",
+    "endpoint": "/chat",
     "body": {
       "user_input": "Give me a 2-day home workout plan for weight loss."
     }

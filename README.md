@@ -6,10 +6,11 @@ colorTo: green
 sdk: streamlit
 sdk_version: "1.38.0"
 app_file: app.py
+python_version: "3.11"
 pinned: false
 ---
 <p align="center">
-  <img src="assets/banner.png" alt="LLM Fitness Assistant Banner" width="250">
+  <img src="https://raw.githubusercontent.com/samfash/llm-fitness-assistant/main/assets/banner.png" alt="LLM Fitness Assistant Banner" width="250">
 </p>
 
 <h1 align="center">🏋️‍♂️ LLM Fitness Assistant</h1>
@@ -112,7 +113,7 @@ CHROMA_PATH=./chroma_db
 
 4️⃣ Run the FastAPI Server
  ```
-uvicorn app:api/api_server --reload
+uvicorn api.api_server:app --reload
  ```
 
 
@@ -124,25 +125,26 @@ Then visit 👉 http://127.0.0.1:8000/docs
 
 Request
  ```
-POST /query
+POST /chat
 {
-  "user_input": "Plan my workout for the next 3 days focused on strength training."
+  "user_id": "demo",
+  "prompt": "Plan my workout for the next 3 days focused on strength training."
 }
  ```
 
 Response
  ```
 {
-  "response": "Here's a 3-day strength training plan: Day 1 - Push (Chest/Triceps)..."
+  "assistant_reply": "Here's a 3-day strength training plan: Day 1 - Push (Chest/Triceps)..."
 }
  ```
 ⚡ Run the UI
 
-Once your FastAPI backend is running (uvicorn app:app --reload):
+Once your FastAPI backend is running (uvicorn api.api_server:app --reload):
 
 Open another terminal:
 ```
-streamlit run ui.py
+streamlit run ui/ui_streamlit.py
 ```
 
 Then go to:
