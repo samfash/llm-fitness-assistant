@@ -26,7 +26,7 @@ def chat_endpoint(query: Query):
         result = chat(query.user_id, text, knowledge=retrieve_context(text))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Server error: {e}") from e
-    return {"assistant_reply": result.reply, "tool_events": result.tool_events}
+    return {"assistant_reply": result.reply, "tool_events": result.tool_events, "guardrails": result.guardrails}
 
 
 @app.get("/profile/{user_id}")

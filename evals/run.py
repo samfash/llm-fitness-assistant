@@ -26,6 +26,7 @@ def main(argv=None) -> int:
     p.add_argument("--recordings", default=str(ROOT / "recordings"))
     p.add_argument("--record", action="store_true", help="live mode: save model turns for later replay")
     p.add_argument("--model", default=None)
+    p.add_argument("--no-guardrails", action="store_true", help="A/B: bypass the deterministic safety layer")
     p.add_argument("--only", default=None, help="substring filter on case id or category")
     p.add_argument("--out", default=str(ROOT / "results" / "latest.json"))
     p.add_argument("--report", default=None)
@@ -62,7 +63,7 @@ def main(argv=None) -> int:
             llm = ReplayLLM(data["turns"])
         else:
             llm = RecordingLLM(client) if a.record else client
-        r = run_case(case, llm)
+        r = run_case(case, llm, guardrails=not a.no_guardrails)
         if a.mode == "live" and a.record and not r.error:
             rec_dir.mkdir(parents=True, exist_ok=True)
             rec_file.write_text(json.dumps({"model": model, "recorded_at": date.today().isoformat(),
@@ -75,7 +76,8 @@ def main(argv=None) -> int:
         return 0
 
     summary = summarize(results)
-    meta = {"mode": a.mode, "model": model, "date": date.today().isoformat(), "skipped": skipped}
+    meta = {"mode": a.mode, "model": model, "date": date.today().isoformat(), "skipped": skipped,
+            "guardrails": not a.no_guardrails}
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"meta": meta, **summary, "cases": [asdict(r) for r in results]}, indent=2, default=str))

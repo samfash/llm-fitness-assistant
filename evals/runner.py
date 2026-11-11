@@ -55,6 +55,7 @@ class CaseResult:
     tool_events: list[dict] = field(default_factory=list)
     latency_s: float = 0.0
     error: str | None = None
+    guardrails: list[dict] = field(default_factory=list)
 
 
 def load_cases(path: Path) -> list[dict]:
@@ -73,7 +74,7 @@ def _seed(setup: dict) -> None:
         db.add_meal(EVAL_USER, MealEntry(**m).model_dump())
 
 
-def run_case(case: dict, llm) -> CaseResult:
+def run_case(case: dict, llm, guardrails: bool = True) -> CaseResult:
     """Fresh temporary database per case so cases cannot contaminate each other."""
     old = os.environ.get("FITNESS_DB_PATH")
     with tempfile.TemporaryDirectory() as td:
@@ -82,7 +83,7 @@ def run_case(case: dict, llm) -> CaseResult:
             _seed(case.get("setup", {}))
             t0 = time.perf_counter()
             try:
-                res = run_agent(EVAL_USER, case["prompt"], llm)
+                res = run_agent(EVAL_USER, case["prompt"], llm, guardrails=guardrails)
             except Exception as e:  # provider/network errors count as a failed case, not a crashed run
                 return CaseResult(case["id"], case["category"], False,
                                   [{"name": "agent_ran", "ok": False, "detail": repr(e)}], error=repr(e),
@@ -90,7 +91,7 @@ def run_case(case: dict, llm) -> CaseResult:
             latency = time.perf_counter() - t0
             score = score_case(case, res, EVAL_USER)
             return CaseResult(case["id"], case["category"], score.passed, [asdict(c) for c in score.checks],
-                              res.reply, res.tool_events, latency)
+                              res.reply, res.tool_events, latency, guardrails=res.guardrails)
         finally:
             if old is None:
                 os.environ.pop("FITNESS_DB_PATH", None)
@@ -112,6 +113,8 @@ def summarize(results: list[CaseResult]) -> dict:
         "overall": {"n": n, "passed": sum(r.passed for r in results), "rate": (sum(r.passed for r in results) / n) if n else 0.0},
         "categories": cats,
         "failed_check_types": dict(failed_checks),
+        "guardrail_blocks": sum(any(g["action"] == "block" for g in r.guardrails) for r in results),
+        "guardrail_rewrites": sum(any(g["action"] == "rewrite" for g in r.guardrails) for r in results),
         "avg_tool_calls": round(statistics.mean(len(r.tool_events) for r in results), 2) if n else 0,
         "latency_p50_s": round(statistics.median(lat), 2) if lat else 0,
         "latency_p95_s": round(lat[min(len(lat) - 1, int(0.95 * len(lat)))], 2) if lat else 0,
@@ -124,7 +127,9 @@ def render_report(summary: dict, results: list[CaseResult], meta: dict) -> str:
         "# Eval report", "",
         f"- Mode: `{meta.get('mode')}`  |  Model: `{meta.get('model', 'n/a')}`  |  Date: {meta.get('date', '')}",
         f"- **Overall: {o['passed']}/{o['n']} ({o['rate']:.0%})**  |  avg tool calls/case: {summary['avg_tool_calls']}"
-        f"  |  latency p50/p95: {summary['latency_p50_s']}s / {summary['latency_p95_s']}s", "",
+        f"  |  latency p50/p95: {summary['latency_p50_s']}s / {summary['latency_p95_s']}s",
+        f"- Guardrails: **{'on' if meta.get('guardrails', True) else 'off'}**  |  cases blocked before the model: "
+        f"{summary['guardrail_blocks']}  |  replies rewritten: {summary['guardrail_rewrites']}", "",
         "| Category | Passed | Rate |", "|---|---|---|",
     ]
     for c, s in sorted(summary["categories"].items()):

@@ -30,9 +30,22 @@ This assistant helps users track workouts, manage diet, and stay motivated — c
 ---
 
 
+## 🛡️ Guardrails
+
+`core/guardrails.py` is a deterministic safety layer (no model calls) around the LLM:
+
+- **Input, hard block (model never called):** chest pain/fainting/breathing trouble, purging or extreme restriction, pregnancy, calorie or weight-loss targets for under-18s, daily intake below 1200 kcal, injury diagnosis requests, and attempts to extract the system prompt. Each returns a fixed, reviewed response that points to a professional.
+- **Input, notice only:** prompt-injection text and cross-user requests. The model is warned to treat them as data, and the legitimate part of the request (e.g. logging the meal) still goes through.
+- **Output rewrite:** replies that leak the system prompt, assert a diagnosis, or recommend a dangerously low daily intake.
+- **Narrow on purpose:** negations ("no chest pain"), units ("12 weeks into my program", "15 minutes late"), deficits ("a 500 calorie deficit") and comma numbers ("2,000 calories") are handled, and 10 benign cases in `evals/cases/precision.json` must never be blocked.
+
+Disable for A/B runs with `GUARDRAILS=off` or `python -m evals.run --no-guardrails`. Limits: regex rules miss paraphrases and non-English input, so treat this as a floor, not a complete safety system.
+
+---
+
 ## 🧪 Evaluation
 
-`evals/` holds a golden set of 23 cases (14 tool-calling, 9 safety) and a harness that scores real model behaviour:
+`evals/` holds a golden set of 33 cases (14 tool-calling, 9 safety, 10 guardrail-precision) and a harness that scores real model behaviour:
 
 - **Tool calling:** did it call the right tool with the right arguments? Did it avoid logging plans or vague statements?
 - **Numeric grounding:** every number >= 100 in a reply must come from a tool result or the user's own message, so the model cannot invent calorie or macro figures.

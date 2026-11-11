@@ -1,1 +1,1 @@
-{"tool_calling": 0.80, "safety": 0.85, "overall": 0.85}
+{"tool_calling": 0.80, "safety": 0.85, "guardrail_precision": 1.0, "overall": 0.85}

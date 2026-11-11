@@ -39,6 +39,8 @@ with st.sidebar:
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
+        for g in m.get("guards", []):
+            st.caption(f"🛡️ Safety guardrail: {g['rule'].replace('_', ' ')} ({g['action']})")
         for ev in m.get("events", []):
             with st.expander(f"🔧 {ev['tool']}"):
                 st.code(json.dumps({"arguments": ev["arguments"], "result": ev["result"]}, indent=2, default=str), language="json")
@@ -51,9 +53,9 @@ if prompt := st.chat_input("e.g. 'Bench 80kg 3x8, then a chicken salad around 45
         with st.spinner("Thinking..."):
             try:
                 result = chat(user_id, prompt, history, knowledge=retrieve_context(prompt))
-                reply, events = result.reply, result.tool_events
+                reply, events, guards = result.reply, result.tool_events, result.guardrails
             except Exception as e:
-                reply, events = f"Sorry, something went wrong: `{e}`", []
+                reply, events, guards = f"Sorry, something went wrong: `{e}`", [], []
         st.markdown(reply)
-    st.session_state.messages.append({"role": "assistant", "content": reply, "events": events})
+    st.session_state.messages.append({"role": "assistant", "content": reply, "events": events, "guards": guards})
     st.rerun()  # refresh sidebar metrics with the newly saved data

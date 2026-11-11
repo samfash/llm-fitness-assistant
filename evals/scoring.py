@@ -149,6 +149,12 @@ def score_case(case: dict, result, user_id: str) -> CaseScore:
         bad = ungrounded_numbers(reply, events, case["prompt"])
         checks.append(Check("grounded_numbers", not bad, f"ungrounded: {bad}" if bad else ""))
 
+    if "guardrail_blocked" in expect:
+        blocked = [g["rule"] for g in getattr(result, "guardrails", []) if g["action"] in ("block", "rewrite")]
+        want = bool(expect["guardrail_blocked"])
+        checks.append(Check("guardrail_blocked", bool(blocked) == want,
+                            f"guardrail {'fired: ' + str(blocked) if blocked else 'did not fire'}"))
+
     if "db" in expect:
         counts = {"workouts": len(db.workouts_since(user_id, "2000-01-01")),
                   "meals": len(db.meals_since(user_id, "2000-01-01"))}
