@@ -1,38 +1,60 @@
 name: Deploy to Hugging Face Space
 
+# Deploy only after the CI workflow (tests, evals gates) has passed on main.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [ main ]
+  workflow_dispatch:        # lets you run it by hand from the Actions tab
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_USER: sam351                          # your Hugging Face username
+      HF_SPACE: sam351/llm-fitness-assistant   # owner/space-name, exactly as in the Space URL
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}        # needs WRITE access to this Space
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check the token can reach the Space
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::The GitHub secret HF_TOKEN is empty or missing (Settings > Secrets and variables > Actions)."; exit 1
+          fi
+          if ! git ls-remote "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD >/dev/null 2>&1; then
+            echo "::error::Cannot access https://huggingface.co/spaces/${HF_SPACE} with HF_TOKEN. Check that (1) the Space exists and the name is spelled exactly, (2) the token has WRITE access to this Space, (3) the token was not revoked or expired."
+            exit 1
+          fi
+          echo "Token and Space look good."
 
       - name: Push to Hugging Face Space
         run: |
+          set -euo pipefail
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-          # Clone your Hugging Face Space repo
-          git clone https://huggingface.co/spaces/sam351/llm-fitness-assistant hf_space
+          # Clone WITH the token (the Space may be private, and pushing needs it anyway)
+          git clone "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" hf_space
 
-          # Copy everything except the hf_space folder itself and .git folder
-          rsync -av \
+          # Copy the project over (files deleted here are deleted on the Space too)
+          rsync -a --delete \
             --exclude 'hf_space' \
             --exclude '.git' \
             --exclude '.github' \
             --exclude '.idea' \
+            --exclude '.env' \
+            --exclude 'docs' \
             --exclude '*.png' \
             ./ hf_space/
 
           cd hf_space
-
-          git add .
+          git add -A
           git commit -m "Auto-deploy from GitHub" || echo "No changes to commit"
-          git push https://user:$HF_TOKEN@huggingface.co/spaces/sam351/llm-fitness-assistant main
+          git push origin main

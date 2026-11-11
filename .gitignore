@@ -7,4 +7,5 @@ __pycache__/
 evals/results/
 traces*.jsonl
 .env copy
+.venv/
 
