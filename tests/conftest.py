@@ -1,7 +1,10 @@
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+os.environ["FITNESS_NO_DOTENV"] = "1"  # never load a developer's real .env during tests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 

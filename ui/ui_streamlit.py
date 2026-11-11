@@ -5,6 +5,10 @@ import os
 import requests
 import streamlit as st
 
+from core.env import load_env
+
+load_env()
+
 # -------------------------------
 # ⚙️ CONFIGURATION
 # -------------------------------

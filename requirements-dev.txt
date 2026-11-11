@@ -6,3 +6,4 @@ httpx
 psycopg[binary,pool]>=3.1
 pgserver            # embedded real PostgreSQL so the whole suite also runs against Postgres
 opentelemetry-sdk   # exercises the OpenTelemetry exporter
+streamlit==1.38.0   # same version as the Space (sdk_version); drives tests/test_app_ui.py

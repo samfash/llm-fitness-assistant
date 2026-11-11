@@ -18,17 +18,80 @@ pinned: false
 
 
 
-This assistant helps users track workouts, manage diet, and stay motivated — combining LangChain, LoRA fine-tuning, and Chroma vector search for intelligence and memory.
+A fitness assistant you talk to in plain English. It records workouts and meals through validated tools, computes calories and macros with tested code from USDA data, answers with cited sources, and keeps everything in PostgreSQL. **The language model decides what was said; code does the arithmetic; a deterministic safety layer wraps both.**
 
+📘 **Full build and go-live guide (Word):** `docs/LLM_Fitness_Assistant_Guide.docx`
 
-
----
 ## 🚀 Live Demo
 
 👉 Try it here: [Hugging Face Space Link](https://huggingface.co/spaces/sam351/llm-fitness-assistant)
 
 ---
 
+## 🧠 Overview
+
+- 💬 **Natural-language logging** of workouts and meals through tool calling (`log_workout`, `search_food`, `log_foods`, ...).
+- 🥗 **USDA FoodData Central** nutrition (13,224 foods); calories and macros are computed in code, never estimated by the model.
+- 🔍 **Retrieval with citations** from a small, reviewable knowledge base; off-topic questions get "no source" instead of a guess.
+- 🛡️ **Deterministic guardrails** before and after the model (medical red flags, eating-disorder signs, minors, extreme diets, prompt injection, fake citations).
+- 🗄️ **PostgreSQL (Neon) or SQLite** with versioned migrations.
+- 🔐 **API keys, rate limits and daily token budgets**; identity comes from the key, never from the request body.
+- 🔭 **Tracing and cost tracking** (JSONL or OpenTelemetry; dollar cost only when you configure prices).
+- 🧪 **Tests and an evaluation harness**; every test runs on SQLite and on a real PostgreSQL.
+
+---
+
+## 🏗️ System architecture
+
+```text
+Client: Streamlit app | REST API | command-line tools
+  |
+  v  Access control: API key, rate limit, daily token budget
+  v  Retrieval (BM25 + optional embeddings) -> numbered, cited context
+  v  Input guardrails (block or warn; a blocked request never reaches the model)
+  v  Agent loop: LLM via Hugging Face Inference Providers  <->  Tool layer
+  |       tools: update_profile, log_workout, search_food, log_foods, log_meal,
+  |              calculate_targets, get_progress_summary, estimate_1rm
+  |       tools use: USDA food database, calculators, PostgreSQL / SQLite
+  v  Output guardrails (prompt leaks, diagnoses, unsafe calories, invented citations)
+  v  Reply + sources + tool events + token usage
+
+Every layer emits trace spans and token/cost usage.
+```
+
+---
+
+## 🚀 Quick start
+
+```bash
+git clone https://github.com/samfash/llm-fitness-assistant.git
+cd llm-fitness-assistant
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt            # runtime (includes PyTorch for embeddings); requirements-dev.txt for tests
+```
+
+Open `.env` (provided with placeholders and comments) and replace the `REPLACE_ME` values: at least `HF_TOKEN` and, to keep data across restarts, `DATABASE_URL` (a Neon connection string). Unfilled placeholders are treated as unset. Then:
+
+```bash
+python -m core.doctor                      # checks config, database, token, data; add --production --live before deploying
+streamlit run app.py                       # the web app (guest mode, or paste an API key)
+```
+
+Optional REST API:
+
+```bash
+python -m core.auth create your-name       # prints an API key ONCE
+uvicorn api.api_server:app --reload        # docs at http://127.0.0.1:8000/docs
+```
+
+```bash
+curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+     -d '{"prompt": "Bench 80kg 3x8, then two eggs and a slice of toast"}' http://127.0.0.1:8000/chat
+```
+
+The response contains `assistant_reply`, `tool_events`, `guardrails`, `sources` (only those cited) and `usage`.
+
+---
 
 ## 🥗 Food data (USDA FoodData Central)
 
@@ -151,192 +214,58 @@ Results (fill in after your first live run): _not yet measured_.
 
 ---
 
-## ✨ What it does (v2)
+## 🧭 Code map
 
-Say "Bench 80kg 3x8, then chicken salad ~450 kcal" and the assistant **records it**: the LLM calls validated tools that write to a database, and all numbers (BMR/TDEE, macros, 1RM, progress) come from tested Python, not from the model.
+| Area | Files |
+|---|---|
+| Entry points | `app.py` (Streamlit), `api/api_server.py` (FastAPI), `ui/ui_streamlit.py` (client for the API) |
+| Agent and tools | `core/agent.py`, `core/tools.py`, `core/schemas.py`, `core/calculators.py` |
+| Safety | `core/guardrails.py` |
+| Retrieval | `core/rag/`, `knowledge/` |
+| Food data | `core/foods.py`, `core/food_import.py`, `fooddata/` |
+| Storage, auth, limits | `core/db.py`, `core/auth.py`, `core/ratelimit.py`, `core/usage.py` |
+| Observability | `core/tracing.py`, `core/pricing.py` |
+| Operations | `core/env.py` (`.env` loader), `core/doctor.py` (preflight) |
+| Quality | `tests/`, `evals/` |
 
-| Layer | File | Notes |
-|---|---|---|
-| Schemas (Pydantic) | `core/schemas.py` | Validation + the JSON schemas the LLM sees |
-| Calculators | `core/calculators.py` | Mifflin-St Jeor, Epley 1RM, calorie floors |
-| Persistence | `core/db.py` | SQLite (set `FITNESS_DB_PATH`); ephemeral on free Spaces |
-| Tools | `core/tools.py` | `user_id` is injected by the app, never by the model |
-| Agent loop | `core/agent.py` | Tool-calling loop, step limit, error feedback |
-| Tests | `tests/` | `pytest`, uses a scripted fake LLM (no network) |
-
-Requires an `HF_TOKEN` Space secret for tool calling. Without it the app falls back to basic chat. Set `HF_MODEL` to a chat model that supports tool calling on Inference Providers.
-
-Run the tests: `pip install pydantic pytest && pytest -q`
-
----
-
-🧠 Overview
-
-
-
-The LLM Fitness Assistant blends modern AI techniques to simulate a real fitness coach:
-
-
-
-💬 Conversational interaction — natural language input for workouts and meals  
-
-🔍 RAG (Retrieval-Augmented Generation) — fetches up-to-date fitness and nutrition data  
-
-🧩 LoRA fine-tuning — adapts the base model’s tone and behavior to act like a coach  
-
-🧠 Memory (via Chroma) — remembers user goals, progress, and preferences  
-
-⚙ FastAPI backend — lightweight, scalable REST API for serving responses  
-
-
+Run the tests: `pip install -r requirements-dev.txt && pytest -q`
 
 ---
 
+## 🧰 Tech stack
 
-
-🏗️ System Architecture
-
-
-
-```text
-
-User Input
-
-&nbsp;  ↓
-
-Prompt Template (Fitness-specific)
-
-&nbsp;  ↓
-
-RAG Retriever (Chroma Vector DB)
-
-&nbsp;  ↓
-
-LoRA Fine-Tuned Model (Hugging Face Transformers)
-
-&nbsp;  ↓
-
-LangChain Agent (decides actions: track, suggest, motivate)
-
-&nbsp;  ↓
-
-Memory Store (Chroma)
-
-&nbsp;  ↓
-
-FastAPI Endpoint → JSON Response
-```
-
-
-🚀 Quick Start
-
-
-
-1️⃣ Clone the Repository
-```bash
-git clone https://github.com/samfash/llm-fitness-assistant.git
-cd llm-fitness-assistant
- ```
-
-2️⃣ Install Dependencies
- ```
-pip install -r requirements.txt
- ```
-
-3️⃣ Set Environment Variables
-
-Create a .env file in the project root:
- ```
-HUGGINGFACE_API_KEY=your_huggingface_token
-CHROMA_PATH=./chroma_db
- ```
-
-4️⃣ Run the FastAPI Server
- ```
-uvicorn api.api_server:app --reload
- ```
-
-
-Then visit 👉 http://127.0.0.1:8000/docs
- for the Swagger UI.
-
-
-🧩 Example API Usage
-
-Request
- ```
-POST /chat
-{
-  "user_id": "demo",
-  "prompt": "Plan my workout for the next 3 days focused on strength training."
-}
- ```
-
-Response
- ```
-{
-  "assistant_reply": "Here's a 3-day strength training plan: Day 1 - Push (Chest/Triceps)..."
-}
- ```
-⚡ Run the UI
-
-Once your FastAPI backend is running (uvicorn api.api_server:app --reload):
-
-Open another terminal:
-```
-streamlit run ui/ui_streamlit.py
-```
-
-Then go to:
-👉 http://localhost:8501
----
-🧰 Tech Stack
-Component	Tool
-LLM Orchestration	LangChain
-
-Model	Hugging Face LoRA fine-tuned model
-Vector Database	ChromaDB
-
-API Framework	FastAPI
-
-Memory & RAG	LangChain + Chroma retriever
-Environment	Python 3.11+
----
-🧪 Development Notes
-
-LoRA fine-tuning is done on a base instruction model (e.g., mistralai/Mistral-7B-Instruct or falcon-7b).
-
-Chroma stores embeddings of user logs, nutrition data, and workout templates.
-
-FastAPI serves as the interface for both a frontend app and other systems (e.g., mobile or chatbot UI).
+| Component | Tool |
+|---|---|
+| Language model | Hugging Face Inference Providers (chat with tool calling); a small local model is an optional fallback |
+| Orchestration | A small purpose-built agent loop (no framework) |
+| Validation | Pydantic v2 |
+| Retrieval | BM25 (pure Python) plus optional `sentence-transformers`, fused with Reciprocal Rank Fusion |
+| Nutrition data | USDA FoodData Central (Survey/FNDDS and SR Legacy) |
+| Database | PostgreSQL (Neon) or SQLite, via psycopg 3 |
+| API / UI | FastAPI / Streamlit 1.38 |
+| Tracing | Own span tracer, exportable to OpenTelemetry |
+| CI/CD | GitHub Actions (tests, gates, deploy to the Space) |
+| Python | 3.11+ |
 
 ---
-🧩 Future Improvements
 
-Integrate progress visualization dashboard (Streamlit)
+## 🧪 Development notes
 
-Add reminder agent for workout schedules
+- There is **no LoRA fine-tuning in this repository**. `LORA_REPO` can load an adapter you trained elsewhere onto the *local fallback* model, but no training code, data or evaluation is included, so no fine-tuning claim is made.
+- There is no vector database: retrieval is an in-memory index, which is enough for hundreds of chunks. Swap in pgvector or Qdrant behind `HybridRetriever` if the corpus grows.
+- Live-model quality has **not been measured yet**: run `python -m evals.run --mode live --record` and record the results.
 
-Support multimodal inputs (e.g., food photo → calorie estimation)
+## 🧩 Future improvements
 
-🧑‍💻 Example Prompt Template
- ```
-You are a friendly and motivating fitness assistant.
-You help users track workouts, plan meals, and stay consistent.
-Use the retrieved context to make informed recommendations.
+- Food-name synonyms ("toast" to toasted bread) and a custom-foods table for regional dishes.
+- Shared (Redis) rate limiting for multiple instances; sign-up, key expiry and per-IP limits on failed logins.
+- Measure hybrid retrieval with real embeddings and the live model's tool-calling and safety rates.
+- Progress dashboard, reminders, food photo to calorie estimate.
 
-Context:
-{retrieved_data}
-
-User Query:
-{user_input}
- ```
 ---
-📄 License
+
+## 📄 License
 
 MIT License © 2025 [Samuel Fasanya](https://fashrockweb.vercel.app/)
 
 📫 Connect: [LinkedIn](https://www.linkedin.com/in/samuel-fasanya-b9ba41112/)
-
-
-

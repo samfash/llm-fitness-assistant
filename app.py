@@ -51,7 +51,10 @@ with st.sidebar:
     days = st.slider("Progress window (days)", 1, 30, 7)
     profile = db.get_profile(user_id)
     st.subheader("Profile")
-    st.json(profile) if profile else st.write("Not set yet. Tell me your age, sex, height, weight, activity level and goal.")
+    if profile:
+        st.json(profile)
+    else:
+        st.write("Not set yet. Tell me your age, sex, height, weight, activity level and goal.")
     s = progress_summary(user_id, days)
     st.subheader("Progress")
     c1, c2 = st.columns(2)

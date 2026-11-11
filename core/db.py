@@ -19,6 +19,10 @@ import threading
 from contextlib import contextmanager
 from datetime import date
 
+from .env import load_env
+
+load_env()  # picks up DATABASE_URL from a local .env (real environment variables still win)
+
 _MIGRATIONS: list[tuple[int, list[str]]] = [
     (1, [
         "CREATE TABLE IF NOT EXISTS profiles (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, "
@@ -44,6 +48,7 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
 ]
 _DATA_TABLES = ["profiles", "workouts", "meals", "api_keys", "usage"]  # everything except schema_migrations
 
+_CONNECT_TIMEOUT = 15  # seconds; a suspended Neon compute needs a moment to wake up
 _initialized: set[str] = set()
 _init_lock = threading.Lock()
 _pools: dict[str, object] = {}
@@ -98,8 +103,14 @@ def _pg_pool(url: str):
             from psycopg.rows import dict_row
             from psycopg_pool import ConnectionPool
 
-            _pools[url] = ConnectionPool(url, min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "5")),
-                                         kwargs={"row_factory": dict_row}, open=True)
+            # Managed Postgres (e.g. Neon) suspends idle compute and drops connections, and its pooler runs in
+            # transaction mode. So: validate a connection when it is handed out, retire idle ones before the
+            # server does, and never rely on server-side prepared statements.
+            _pools[url] = ConnectionPool(
+                url, min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "5")), open=True,
+                kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": _CONNECT_TIMEOUT},
+                check=ConnectionPool.check_connection, max_idle=240, max_lifetime=1800,
+                timeout=_CONNECT_TIMEOUT)  # fail a request in 15 s, not 30, if the database is unreachable
         except ImportError:
             _pools[url] = None
     return _pools[url]
@@ -117,7 +128,8 @@ def _raw_connection():
             import psycopg
             from psycopg.rows import dict_row
 
-            with psycopg.connect(url, row_factory=dict_row) as conn:
+            with psycopg.connect(url, row_factory=dict_row, prepare_threshold=None,
+                                 connect_timeout=_CONNECT_TIMEOUT) as conn:
                 yield conn, True
     else:
         path = _target()

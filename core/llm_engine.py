@@ -12,6 +12,10 @@ import logging
 import os
 from functools import lru_cache
 
+from .env import load_env
+
+load_env()  # must run before the module-level settings below are read
+
 log = logging.getLogger(__name__)
 
 HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
