@@ -30,6 +30,25 @@ This assistant helps users track workouts, manage diet, and stay motivated — c
 ---
 
 
+## ✨ What it does (v2)
+
+Say "Bench 80kg 3x8, then chicken salad ~450 kcal" and the assistant **records it**: the LLM calls validated tools that write to a database, and all numbers (BMR/TDEE, macros, 1RM, progress) come from tested Python, not from the model.
+
+| Layer | File | Notes |
+|---|---|---|
+| Schemas (Pydantic) | `core/schemas.py` | Validation + the JSON schemas the LLM sees |
+| Calculators | `core/calculators.py` | Mifflin-St Jeor, Epley 1RM, calorie floors |
+| Persistence | `core/db.py` | SQLite (set `FITNESS_DB_PATH`); ephemeral on free Spaces |
+| Tools | `core/tools.py` | `user_id` is injected by the app, never by the model |
+| Agent loop | `core/agent.py` | Tool-calling loop, step limit, error feedback |
+| Tests | `tests/` | `pytest`, uses a scripted fake LLM (no network) |
+
+Requires an `HF_TOKEN` Space secret for tool calling. Without it the app falls back to basic chat. Set `HF_MODEL` to a chat model that supports tool calling on Inference Providers.
+
+Run the tests: `pip install pydantic pytest && pytest -q`
+
+---
+
 🧠 Overview
 
 

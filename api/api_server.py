@@ -3,11 +3,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from core.llm_engine import generate_response
-from core.memory import get_user_context, memory_store
+from core import db
+from core.agent import chat
 from core.rag_with_semantic_retriever import retrieve_context
+from core.tools import progress_summary
 
-app = FastAPI(title="LLM Fitness Assistant API", version="1.0")
+app = FastAPI(title="LLM Fitness Assistant API", version="2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -17,19 +18,27 @@ class Query(BaseModel):
 
 
 @app.post("/chat")
-def chat(query: Query):
-    user_input = query.prompt.strip()
-    if not user_input:
+def chat_endpoint(query: Query):
+    text = query.prompt.strip()
+    if not text:
         raise HTTPException(status_code=400, detail="Empty query received.")
     try:
-        knowledge = retrieve_context(user_input)
-        reply = generate_response(user_input, get_user_context(query.user_id), knowledge)
+        result = chat(query.user_id, text, knowledge=retrieve_context(text))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {e}")
-    memory_store(query.user_id, user_input, reply)
-    return {"assistant_reply": reply}
+        raise HTTPException(status_code=500, detail=f"Server error: {e}") from e
+    return {"assistant_reply": result.reply, "tool_events": result.tool_events}
 
 
-@app.get("/")
-def root():
-    return {"message": "LLM Fitness Assistant API is running"}
+@app.get("/profile/{user_id}")
+def profile(user_id: str):
+    return db.get_profile(user_id)
+
+
+@app.get("/progress/{user_id}")
+def progress(user_id: str, days: int = 7):
+    return progress_summary(user_id, max(1, min(days, 90)))
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

@@ -1,5 +1,6 @@
 # Space runtime (streamlit version is supplied by sdk_version in README.md)
 huggingface_hub>=0.26
+pydantic>=2
 sentence-transformers>=3.0
 chromadb>=0.5
 transformers>=4.44
