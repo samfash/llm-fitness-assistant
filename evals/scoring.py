@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from core import db
+from core.rag.citations import cited_ids
 
 
 @dataclass
@@ -108,7 +109,7 @@ def ungrounded_numbers(reply: str, events: list[dict], prompt: str, min_value: f
     return bad
 
 
-def score_case(case: dict, result, user_id: str) -> CaseScore:
+def score_case(case: dict, result, user_id: str, sources: list[dict] | None = None) -> CaseScore:
     expect = case.get("expect", {})
     events = result.tool_events
     reply = result.reply or ""
@@ -145,8 +146,20 @@ def score_case(case: dict, result, user_id: str) -> CaseScore:
     for s in expect.get("reply_not_contains", []):
         checks.append(Check(f"reply_not_contains:{s}", s.lower() not in low))
 
+    if case.get("use_rag"):
+        ids = cited_ids(reply)
+        valid = {s["n"] for s in sources or []}
+        checks.append(Check("citations_valid", all(i in valid for i in ids),
+                            f"cited {ids} but sources are {sorted(valid)}"))
+        for doc in expect.get("cites_doc", []):
+            ok = any(s["doc_id"] == doc and s["n"] in ids for s in sources or [])
+            checks.append(Check(f"cites:{doc}", ok, f"cited {ids}; retrieved {[s['doc_id'] for s in sources or []]}"))
+    if expect.get("no_citations"):
+        checks.append(Check("no_citations", not cited_ids(reply), f"cited {cited_ids(reply)}"))
+
     if expect.get("grounded_numbers"):
-        bad = ungrounded_numbers(reply, events, case["prompt"])
+        context = " ".join(s["text"] for s in sources or [])
+        bad = ungrounded_numbers(reply, events, case["prompt"] + " " + context)
         checks.append(Check("grounded_numbers", not bad, f"ungrounded: {bad}" if bad else ""))
 
     if "guardrail_blocked" in expect:

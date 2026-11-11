@@ -8,10 +8,12 @@ import tempfile
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from core import db
 from core.agent import AssistantTurn, ToolCall, run_agent
+from core.rag import build_retriever, format_context
 from core.schemas import MealEntry, WorkoutEntry
 
 from .scoring import score_case
@@ -56,6 +58,7 @@ class CaseResult:
     latency_s: float = 0.0
     error: str | None = None
     guardrails: list[dict] = field(default_factory=list)
+    retrieved: list[str] = field(default_factory=list)
 
 
 def load_cases(path: Path) -> list[dict]:
@@ -74,24 +77,33 @@ def _seed(setup: dict) -> None:
         db.add_meal(EVAL_USER, MealEntry(**m).model_dump())
 
 
-def run_case(case: dict, llm, guardrails: bool = True) -> CaseResult:
+@lru_cache(maxsize=1)
+def _default_retriever():
+    return build_retriever(dense=False)  # BM25 only: deterministic, so recordings replay identically
+
+
+def run_case(case: dict, llm, guardrails: bool = True, retriever=None) -> CaseResult:
     """Fresh temporary database per case so cases cannot contaminate each other."""
     old = os.environ.get("FITNESS_DB_PATH")
     with tempfile.TemporaryDirectory() as td:
         os.environ["FITNESS_DB_PATH"] = str(Path(td) / "eval.db")
         try:
             _seed(case.get("setup", {}))
+            knowledge, sources = "", []
+            if case.get("use_rag"):
+                knowledge, sources = format_context((retriever or _default_retriever()).search(case["prompt"]))
             t0 = time.perf_counter()
             try:
-                res = run_agent(EVAL_USER, case["prompt"], llm, guardrails=guardrails)
+                res = run_agent(EVAL_USER, case["prompt"], llm, knowledge=knowledge, guardrails=guardrails)
             except Exception as e:  # provider/network errors count as a failed case, not a crashed run
                 return CaseResult(case["id"], case["category"], False,
                                   [{"name": "agent_ran", "ok": False, "detail": repr(e)}], error=repr(e),
                                   latency_s=time.perf_counter() - t0)
             latency = time.perf_counter() - t0
-            score = score_case(case, res, EVAL_USER)
+            score = score_case(case, res, EVAL_USER, sources)
             return CaseResult(case["id"], case["category"], score.passed, [asdict(c) for c in score.checks],
-                              res.reply, res.tool_events, latency, guardrails=res.guardrails)
+                              res.reply, res.tool_events, latency, guardrails=res.guardrails,
+                              retrieved=[s["doc_id"] for s in sources])
         finally:
             if old is None:
                 os.environ.pop("FITNESS_DB_PATH", None)

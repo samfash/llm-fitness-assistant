@@ -2,6 +2,5 @@
 huggingface_hub>=0.26
 pydantic>=2
 sentence-transformers>=3.0
-chromadb>=0.5
 transformers>=4.44
 torch

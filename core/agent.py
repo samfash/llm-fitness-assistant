@@ -10,6 +10,7 @@ from typing import Protocol
 
 from .guardrails import check_input, check_output
 from .llm_engine import HF_TOKEN, REMOTE_MODEL, generate_response
+from .rag.citations import sanitize_citations, valid_ids_from_context
 from .tools import execute_tool, tool_specs
 
 log = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ Rules:
 - If a tool returns an error, fix the arguments or ask the user; never claim something was saved when it was not.
 - Meal macros are your best estimate; say so briefly.
 - You are not a doctor. For chest pain, injury, pregnancy, eating-disorder signs or medical conditions, advise seeing a professional instead of giving a plan.
+- Background knowledge is numbered [1], [2], ... When you use it, cite it inline like [1]. Only cite numbers you were given. If the knowledge does not cover the question, say you do not have a source for it rather than guessing.
 - Be concise.
 {knowledge}"""
 
@@ -102,6 +104,9 @@ def run_agent(user_id: str, user_input: str, llm: LLMClient, history: list[dict]
             reply, rule = check_output(reply, system_core)
             if rule:
                 gevents.append(_gevent("output", rule, "rewrite"))
+            reply, removed = sanitize_citations(reply, valid_ids_from_context(knowledge))
+            if removed:  # the model cited a source it was never given
+                gevents.append(_gevent("output", "invalid_citation", "sanitize"))
         return AgentResult(reply, events, gevents)
 
     messages = [{"role": "system", "content": system}, *(history or []), {"role": "user", "content": user_input}]
@@ -151,5 +156,8 @@ def chat(user_id: str, user_input: str, history: list[dict] | None = None, knowl
         reply, rule = check_output(reply, SYSTEM_PROMPT.format(today=date.today().isoformat(), knowledge=""))
         if rule:
             gevents.append(_gevent("output", rule, "rewrite"))
+        reply, removed = sanitize_citations(reply, valid_ids_from_context(knowledge))
+        if removed:
+            gevents.append(_gevent("output", "invalid_citation", "sanitize"))
     return AgentResult(
         reply + "\n\n_(Logging and tracking need an HF_TOKEN; running in basic chat mode.)_", [], gevents)

@@ -5,7 +5,8 @@ from pydantic import BaseModel
 
 from core import db
 from core.agent import chat
-from core.rag_with_semantic_retriever import retrieve_context
+from core.rag import cited_ids
+from core.rag_with_semantic_retriever import retrieve_with_sources
 from core.tools import progress_summary
 
 app = FastAPI(title="LLM Fitness Assistant API", version="2.0")
@@ -23,10 +24,13 @@ def chat_endpoint(query: Query):
     if not text:
         raise HTTPException(status_code=400, detail="Empty query received.")
     try:
-        result = chat(query.user_id, text, knowledge=retrieve_context(text))
+        knowledge, sources = retrieve_with_sources(text)
+        result = chat(query.user_id, text, knowledge=knowledge)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Server error: {e}") from e
-    return {"assistant_reply": result.reply, "tool_events": result.tool_events, "guardrails": result.guardrails}
+    cited = cited_ids(result.reply)
+    return {"assistant_reply": result.reply, "tool_events": result.tool_events, "guardrails": result.guardrails,
+            "sources": [x for x in sources if x["n"] in cited]}
 
 
 @app.get("/profile/{user_id}")

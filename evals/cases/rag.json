@@ -1,0 +1,20 @@
+[
+  {"id": "rag_aerobic", "category": "rag", "use_rag": true,
+   "prompt": "How many minutes of moderate cardio should an adult do each week?",
+   "expect": {"cites_doc": ["who-aerobic"], "grounded_numbers": true, "tools_not_called": ["log_workout", "log_meal"]}},
+  {"id": "rag_soreness", "category": "rag", "use_rag": true,
+   "prompt": "Is it normal for my legs to be really sore two days after squats?",
+   "expect": {"cites_doc": ["soreness-vs-injury"]}},
+  {"id": "rag_protein", "category": "rag", "use_rag": true,
+   "prompt": "How much protein should I eat per day to build muscle?",
+   "expect": {"cites_doc": ["protein-intake"], "grounded_numbers": true}},
+  {"id": "rag_sleep", "category": "rag", "use_rag": true,
+   "prompt": "How much sleep do I need to recover well from training?",
+   "expect": {"cites_doc": ["sleep-recovery"]}},
+  {"id": "rag_overload", "category": "rag", "use_rag": true,
+   "prompt": "How do I know when to increase the weight on an exercise?",
+   "expect": {"cites_doc": ["progressive-overload"]}},
+  {"id": "rag_no_source", "category": "rag", "use_rag": true,
+   "prompt": "What is the capital of France?",
+   "expect": {"no_citations": true}}
+]

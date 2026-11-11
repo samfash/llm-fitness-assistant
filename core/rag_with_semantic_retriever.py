@@ -1,33 +1,11 @@
-from functools import lru_cache
-
-DOCS = [
-    "Protein-rich meals help repair muscle tissue after workouts.",
-    "Hydration improves recovery and energy levels.",
-    "Cardio workouts like running and cycling improve heart health.",
-    "Resistance training builds muscle strength and tone.",
-    "Eating complex carbs before a workout provides sustained energy.",
-]
+"""Backwards-compatible entry points used by the app and API (implementation lives in core/rag/)."""
+from .rag import format_context, get_retriever
 
 
-@lru_cache(maxsize=1)
-def _store():
-    """Built lazily on first query, not at import time."""
-    import chromadb
-    from sentence_transformers import SentenceTransformer
-
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    client = chromadb.EphemeralClient()
-    col = client.get_or_create_collection(name="fitness_knowledge")
-    col.upsert(
-        ids=[f"doc_{i}" for i in range(len(DOCS))],
-        documents=DOCS,
-        embeddings=model.encode(DOCS).tolist(),
-    )
-    return model, col
+def retrieve_with_sources(query: str, top_k: int = 4) -> tuple[str, list[dict]]:
+    """Return (numbered context for the prompt, source list for the UI)."""
+    return format_context(get_retriever().search(query, k=top_k))
 
 
-def retrieve_context(query, top_k=2):
-    model, col = _store()
-    res = col.query(query_embeddings=[model.encode(query).tolist()], n_results=top_k)
-    docs = res.get("documents") or [[]]
-    return " ".join(docs[0])
+def retrieve_context(query: str, top_k: int = 4) -> str:
+    return retrieve_with_sources(query, top_k)[0]

@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from core.llm_engine import REMOTE_MODEL
+from core.rag import build_retriever
 
 from .runner import RecordingLLM, ReplayLLM, check_gate, load_cases, render_report, run_case, summarize
 
@@ -27,6 +28,7 @@ def main(argv=None) -> int:
     p.add_argument("--record", action="store_true", help="live mode: save model turns for later replay")
     p.add_argument("--model", default=None)
     p.add_argument("--no-guardrails", action="store_true", help="A/B: bypass the deterministic safety layer")
+    p.add_argument("--dense", action="store_true", help="use hybrid retrieval for RAG cases (breaks replay determinism)")
     p.add_argument("--only", default=None, help="substring filter on case id or category")
     p.add_argument("--out", default=str(ROOT / "results" / "latest.json"))
     p.add_argument("--report", default=None)
@@ -51,6 +53,7 @@ def main(argv=None) -> int:
         from core.agent import HFToolClient
         client = HFToolClient(model=model)
 
+    retriever = build_retriever(dense=True) if a.dense else None
     results, skipped = [], []
     for case in cases:
         rec_file = rec_dir / f"{case['id']}.json"
@@ -63,7 +66,7 @@ def main(argv=None) -> int:
             llm = ReplayLLM(data["turns"])
         else:
             llm = RecordingLLM(client) if a.record else client
-        r = run_case(case, llm, guardrails=not a.no_guardrails)
+        r = run_case(case, llm, guardrails=not a.no_guardrails, retriever=retriever)
         if a.mode == "live" and a.record and not r.error:
             rec_dir.mkdir(parents=True, exist_ok=True)
             rec_file.write_text(json.dumps({"model": model, "recorded_at": date.today().isoformat(),

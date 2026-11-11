@@ -30,6 +30,29 @@ This assistant helps users track workouts, manage diet, and stay motivated — c
 ---
 
 
+## 📚 Retrieval (RAG)
+
+`core/rag/` replaces the old five-sentence toy retriever:
+
+- **Corpus:** `knowledge/*.md`, one file per topic with `id`, `title` and `source` front matter. Drop in your own files. The 16 starter documents are paraphrased summaries meant for testing; **have a qualified person review them against the primary sources before real use** (see `knowledge/README.md`).
+- **Chunking:** whole paragraphs packed to about 90 words, with the document title prepended to the indexed text.
+- **Hybrid search:** BM25 (pure Python) plus optional dense embeddings (`sentence-transformers`), fused with Reciprocal Rank Fusion. Dense is used automatically when available and falls back to BM25-only otherwise; set `RAG_DENSE=off` to force BM25. An optional cross-encoder reranker is available with `RAG_RERANK=1`.
+- **Relevance gate:** an off-topic question returns no context instead of the "least bad" chunk, so the model says it has no source rather than inventing one.
+- **Citations:** context is numbered `[1]`, `[2]`; the model is told to cite inline, the UI shows only the sources actually cited, and any `[n]` the model invents is stripped.
+- **Scale:** the index is in memory, which is fine for hundreds of chunks. Swap in pgvector or Qdrant behind `HybridRetriever` when the corpus grows.
+
+```bash
+python -m evals.retrieval           # BM25 baseline, deterministic (runs in CI)
+python -m evals.retrieval --dense   # hybrid with real embeddings (needs a model download)
+```
+
+Measured on the 30-query set in `evals/data/retrieval_qa.json` (24 answerable, 6 off-topic), BM25 only:
+MRR 0.865, hit@1 0.83, hit@4 0.92, off-topic queries correctly rejected 100%. Hybrid numbers: _run `--dense` locally to measure_.
+
+**Caveat:** the queries were written by the same author as the corpus, so these scores are optimistic. Replace them with real user queries as you collect them.
+
+---
+
 ## 🛡️ Guardrails
 
 `core/guardrails.py` is a deterministic safety layer (no model calls) around the LLM:
@@ -45,7 +68,7 @@ Disable for A/B runs with `GUARDRAILS=off` or `python -m evals.run --no-guardrai
 
 ## 🧪 Evaluation
 
-`evals/` holds a golden set of 33 cases (14 tool-calling, 9 safety, 10 guardrail-precision) and a harness that scores real model behaviour:
+`evals/` holds a golden set of 39 cases (14 tool-calling, 9 safety, 10 guardrail-precision, 6 RAG) and a harness that scores real model behaviour:
 
 - **Tool calling:** did it call the right tool with the right arguments? Did it avoid logging plans or vague statements?
 - **Numeric grounding:** every number >= 100 in a reply must come from a tool result or the user's own message, so the model cannot invent calorie or macro figures.
