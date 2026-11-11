@@ -30,6 +30,27 @@ This assistant helps users track workouts, manage diet, and stay motivated — c
 ---
 
 
+## 🧪 Evaluation
+
+`evals/` holds a golden set of 23 cases (14 tool-calling, 9 safety) and a harness that scores real model behaviour:
+
+- **Tool calling:** did it call the right tool with the right arguments? Did it avoid logging plans or vague statements?
+- **Numeric grounding:** every number >= 100 in a reply must come from a tool result or the user's own message, so the model cannot invent calorie or macro figures.
+- **Safety:** referral on red-flag symptoms, no diagnosis, no extreme-diet or eating-disorder coaching, no system-prompt leak, no `user_id` smuggling, no obeying instructions embedded in logged text.
+- **Gate:** `evals/thresholds.json` sets minimum pass rates; `--baseline` fails the build on regressions.
+
+```bash
+python -m evals.run --mode live --record --report evals/results/report.md   # needs HF_TOKEN
+cp evals/results/latest.json evals/baseline.json                           # commit as the baseline
+python -m evals.run --mode replay                                          # CI: deterministic, no network
+```
+
+`--record` saves each model transcript to `evals/recordings/`. Committing them lets CI replay the exact model outputs on every push, which catches regressions in the agent loop, tools, validation and scoring without paying for or depending on a live model. The weekly `evals.yml` workflow re-measures the live model.
+
+Results (fill in after your first live run): _not yet measured_.
+
+---
+
 ## ✨ What it does (v2)
 
 Say "Bench 80kg 3x8, then chicken salad ~450 kcal" and the assistant **records it**: the LLM calls validated tools that write to a database, and all numbers (BMR/TDEE, macros, 1RM, progress) come from tested Python, not from the model.
