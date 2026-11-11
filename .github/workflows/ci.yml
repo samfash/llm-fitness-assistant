@@ -1,0 +1,19 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check core tests api evals app.py ui example
+      - name: Unit + integration tests (every test runs on SQLite AND a real PostgreSQL)
+        run: pytest -q
+      - name: Replay recorded eval transcripts (no network)
+        run: python -m evals.run --mode replay
+      - name: Retrieval quality gate (BM25, deterministic)
+        run: python -m evals.retrieval
+      - name: Food search quality gate
+        run: python -m evals.food_eval
