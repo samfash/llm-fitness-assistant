@@ -31,6 +31,7 @@ class RecordingLLM:
         self.turns.append({
             "content": turn.content,
             "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in turn.tool_calls],
+            "usage": turn.usage,
         })
         return turn
 
@@ -43,7 +44,7 @@ class ReplayLLM:
         if not self.turns:
             raise RuntimeError("Recording exhausted: agent made more model calls than were recorded")
         t = self.turns.pop(0)
-        return AssistantTurn(t["content"], [ToolCall(c["id"], c["name"], c["arguments"]) for c in t["tool_calls"]])
+        return AssistantTurn(t["content"], [ToolCall(c["id"], c["name"], c["arguments"]) for c in t["tool_calls"]], t.get("usage"))
 
 
 # ---- cases ---------------------------------------------------------------------------------------
@@ -59,6 +60,7 @@ class CaseResult:
     error: str | None = None
     guardrails: list[dict] = field(default_factory=list)
     retrieved: list[str] = field(default_factory=list)
+    usage: dict = field(default_factory=dict)
 
 
 def load_cases(path: Path) -> list[dict]:
@@ -85,6 +87,7 @@ def _default_retriever():
 def run_case(case: dict, llm, guardrails: bool = True, retriever=None) -> CaseResult:
     """Fresh temporary database per case so cases cannot contaminate each other."""
     old = os.environ.get("FITNESS_DB_PATH")
+    old_url = os.environ.pop("DATABASE_URL", None)  # evals must never touch a real Postgres
     with tempfile.TemporaryDirectory() as td:
         os.environ["FITNESS_DB_PATH"] = str(Path(td) / "eval.db")
         try:
@@ -103,12 +106,14 @@ def run_case(case: dict, llm, guardrails: bool = True, retriever=None) -> CaseRe
             score = score_case(case, res, EVAL_USER, sources)
             return CaseResult(case["id"], case["category"], score.passed, [asdict(c) for c in score.checks],
                               res.reply, res.tool_events, latency, guardrails=res.guardrails,
-                              retrieved=[s["doc_id"] for s in sources])
+                              retrieved=[s["doc_id"] for s in sources], usage=res.usage)
         finally:
             if old is None:
                 os.environ.pop("FITNESS_DB_PATH", None)
             else:
                 os.environ["FITNESS_DB_PATH"] = old
+            if old_url is not None:
+                os.environ["DATABASE_URL"] = old_url
 
 
 # ---- aggregation / report / gate -----------------------------------------------------------------
@@ -127,6 +132,9 @@ def summarize(results: list[CaseResult]) -> dict:
         "failed_check_types": dict(failed_checks),
         "guardrail_blocks": sum(any(g["action"] == "block" for g in r.guardrails) for r in results),
         "guardrail_rewrites": sum(any(g["action"] == "rewrite" for g in r.guardrails) for r in results),
+        "total_tokens": sum(r.usage.get("prompt_tokens", 0) + r.usage.get("completion_tokens", 0) for r in results),
+        "avg_tokens": round(statistics.mean(r.usage.get("prompt_tokens", 0) + r.usage.get("completion_tokens", 0) for r in results)) if n else 0,
+        "total_cost_usd": (lambda cs: round(sum(cs), 6) if cs else None)([r.usage["cost_usd"] for r in results if r.usage.get("cost_usd") is not None]),
         "avg_tool_calls": round(statistics.mean(len(r.tool_events) for r in results), 2) if n else 0,
         "latency_p50_s": round(statistics.median(lat), 2) if lat else 0,
         "latency_p95_s": round(lat[min(len(lat) - 1, int(0.95 * len(lat)))], 2) if lat else 0,
@@ -140,6 +148,8 @@ def render_report(summary: dict, results: list[CaseResult], meta: dict) -> str:
         f"- Mode: `{meta.get('mode')}`  |  Model: `{meta.get('model', 'n/a')}`  |  Date: {meta.get('date', '')}",
         f"- **Overall: {o['passed']}/{o['n']} ({o['rate']:.0%})**  |  avg tool calls/case: {summary['avg_tool_calls']}"
         f"  |  latency p50/p95: {summary['latency_p50_s']}s / {summary['latency_p95_s']}s",
+        f"- Tokens: {summary['total_tokens']} total, {summary['avg_tokens']}/case  |  cost: "
+        + (f"${summary['total_cost_usd']}" if summary["total_cost_usd"] is not None else "unknown (set MODEL_PRICES)"),
         f"- Guardrails: **{'on' if meta.get('guardrails', True) else 'off'}**  |  cases blocked before the model: "
         f"{summary['guardrail_blocks']}  |  replies rewritten: {summary['guardrail_rewrites']}", "",
         "| Category | Passed | Rate |", "|---|---|---|",

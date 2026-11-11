@@ -1,8 +1,9 @@
 # ui.py
-import streamlit as st
+
+import os
+
 import requests
-import json
-from datetime import datetime
+import streamlit as st
 
 # -------------------------------
 # ⚙️ CONFIGURATION
@@ -13,8 +14,8 @@ st.set_page_config(
     layout="centered",
 )
 
-import os, uuid
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/chat")
+API_KEY = os.getenv("API_KEY", "")  # create with: python -m core.auth create <user>
 
 # -------------------------------
 # 🎯 SESSION STATE INITIALIZATION
@@ -52,10 +53,8 @@ if prompt := st.chat_input("Type your question or log an activity (e.g. 'I did p
     # 🔗 SEND REQUEST TO FASTAPI BACKEND
     # -------------------------------
     try:
-        if "user_id" not in st.session_state:
-            st.session_state.user_id = str(uuid.uuid4())
-        payload = {"user_id": st.session_state.user_id, "prompt": prompt}
-        response = requests.post(API_URL, json=payload, timeout=120)
+        payload = {"prompt": prompt, "history": st.session_state.messages[-11:-1]}
+        response = requests.post(API_URL, json=payload, headers={"Authorization": f"Bearer {API_KEY}"}, timeout=120)
         if response.status_code == 200:
             reply = response.json().get("assistant_reply", "No response from model.")
         else:
@@ -70,13 +69,22 @@ if prompt := st.chat_input("Type your question or log an activity (e.g. 'I did p
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
 # -------------------------------
-# 📊 OPTIONAL: DISPLAY SUMMARY SIDEBAR
+# 📊 SIDEBAR: real progress from the API (nothing is faked client-side)
 # -------------------------------
 with st.sidebar:
-    st.header("📈 Progress Overview")
-    st.write("Last update:", datetime.now().strftime("%Y-%m-%d %H:%M"))
-    st.write("💪 Workouts logged:", len([m for m in st.session_state.messages if 'pushup' in m['content'].lower()]))
-    st.write("🍎 Diet entries:", len([m for m in st.session_state.messages if 'calorie' in m['content'].lower()]))
+    st.header("📈 Progress overview")
+    try:
+        base = API_URL.rsplit("/", 1)[0]
+        p = requests.get(f"{base}/progress", headers={"Authorization": f"Bearer {API_KEY}"}, timeout=15)
+        if p.status_code == 200:
+            data = p.json()
+            st.metric("Workout sessions (7 days)", data["workout_sessions"])
+            st.metric("Total volume (kg)", data["total_volume_kg"])
+            if data["avg_daily_calories"] is not None:
+                st.metric("Avg kcal/day", data["avg_daily_calories"])
+        else:
+            st.caption(f"Progress unavailable ({p.status_code}). Is API_KEY set?")
+    except Exception:
+        st.caption("API not reachable.")
     st.markdown("---")
-    st.write("🧠 Powered by LangChain + LoRA + Chroma + FastAPI")
-
+    st.caption("Nutrition data: USDA FoodData Central (public domain, CC0).")

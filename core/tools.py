@@ -15,7 +15,18 @@ from pydantic import BaseModel, ValidationError
 
 from . import db
 from .calculators import compute_targets, epley_1rm
-from .schemas import MealEntry, NoArgs, OneRMRequest, Profile, ProgressRequest, WorkoutEntry
+from .foods import ATTRIBUTION, SOURCE_NAMES, Food, Portion, get_food_db
+from .schemas import (
+    FoodSearchRequest,
+    LogFoodsRequest,
+    MealEntry,
+    NoArgs,
+    OneRMRequest,
+    Profile,
+    ProgressRequest,
+    WorkoutEntry,
+)
+from .tracing import content_enabled, span
 
 
 def progress_summary(user_id: str, days: int = 7) -> dict:
@@ -75,6 +86,61 @@ def _one_rm(uid: str, a: OneRMRequest) -> dict:
     return {"estimated_1rm_kg": round(epley_1rm(a.weight_kg, a.reps), 1), "formula": "Epley"}
 
 
+def _norm_label(label: str) -> str:
+    label = label.lower().strip()
+    return label[2:] if label.startswith("1 ") else label  # "1 large" and "large" mean the same
+
+
+def resolve_portion(food: Food, label: str) -> Portion:
+    want = _norm_label(label)
+    exact = [p for p in food.portions if _norm_label(p.label) == want]
+    if len(exact) == 1:
+        return exact[0]
+    near = exact or [p for p in food.portions if want in _norm_label(p.label)]
+    if len(near) == 1:
+        return near[0]
+    available = [p.label for p in food.portions][:10]
+    raise ValueError(f"Portion '{label}' is {'ambiguous' if near else 'not available'} for '{food.description}'. "
+                     f"Use grams or one of: {available}")
+
+
+def _search_food(uid: str, a: FoodSearchRequest) -> dict:
+    fdb = get_food_db()
+    if not len(fdb):
+        raise ValueError("The food database is not installed on this server; use log_meal with the user's numbers.")
+    results = fdb.search(a.query, a.limit)
+    if not results:
+        return {"results": [], "hint": "No match. Try a simpler or more generic name, or use log_meal if the user gave calories."}
+    return {"results": [{"fdc_id": f.fdc_id, "description": f.description, "category": f.category,
+                         "source": SOURCE_NAMES.get(f.source, f.source), "per_100g": f.per_100g(),
+                         "portions": [{"label": p.label, "grams": p.grams} for p in f.portions[:6]]} for f in results],
+            "attribution": ATTRIBUTION}
+
+
+MAX_MEAL_KCAL = 5000
+
+
+def _log_foods(uid: str, a: LogFoodsRequest) -> dict:
+    fdb = get_food_db()
+    lines = []
+    for it in a.items:
+        food = fdb.get(it.fdc_id)
+        if food is None:
+            raise ValueError(f"Unknown fdc_id {it.fdc_id}; call search_food first and use an id from its results.")
+        grams = it.grams if it.grams is not None else resolve_portion(food, it.portion).grams * it.quantity
+        if grams > 3000:
+            raise ValueError(f"{grams:g} g of '{food.description}' looks wrong; check the quantity and units.")
+        lines.append({"fdc_id": food.fdc_id, "name": food.description, "grams": round(grams, 1),
+                      **food.macros_for(grams)})
+    totals = {k: round(sum(x[k] for x in lines), 1) for k in ("calories", "protein_g", "carbs_g", "fat_g")}
+    if totals["calories"] > MAX_MEAL_KCAL:
+        raise ValueError(f"Meal total of {totals['calories']:g} kcal looks too large; check quantities and units.")
+    name = a.meal or ", ".join(x["name"].split(",")[0] for x in lines)[:190]
+    entry = MealEntry(description=name, date=a.date, **totals)
+    meal_id = db.add_meal(uid, {**entry.model_dump(), "items": lines})
+    return {"saved": True, "id": meal_id, "items": lines, "totals": totals, "source": ATTRIBUTION}
+
+
 @dataclass(frozen=True)
 class Tool:
     name: str
@@ -86,7 +152,14 @@ class Tool:
 TOOLS: dict[str, Tool] = {t.name: t for t in [
     Tool("update_profile", "Save or update the user's profile (age, sex, height, weight, activity, goal, equipment, injuries). Only pass fields the user stated.", Profile, _update_profile),
     Tool("log_workout", "Record a completed exercise (one exercise per call).", WorkoutEntry, _log_workout),
-    Tool("log_meal", "Record a meal with estimated calories and macros.", MealEntry, _log_meal),
+    Tool("search_food", "Search the USDA food database by name. Use simple generic names (e.g. 'egg', 'rice cooked', "
+         "'bread toasted'). Returns candidates with per-100 g macros and portion sizes. Call once per food. If the "
+         "candidates differ a lot in calories, ask the user which one they ate.", FoodSearchRequest, _search_food),
+    Tool("log_foods", "Record a meal from USDA foods: pass each food's fdc_id from search_food plus grams, or a portion "
+         "label exactly as listed with a quantity (e.g. portion '1 large', quantity 2). Calories and macros are "
+         "calculated for you.", LogFoodsRequest, _log_foods),
+    Tool("log_meal", "Record a meal using calories/macros the user stated themselves, or when no USDA match exists. "
+         "Prefer search_food + log_foods for foods described in words.", MealEntry, _log_meal),
     Tool("calculate_targets", "Compute BMR, TDEE and daily calorie/macro targets from the saved profile.", NoArgs, _targets),
     Tool("get_progress_summary", "Summarise recent workouts and nutrition versus targets.", ProgressRequest, _progress),
     Tool("estimate_1rm", "Estimate one-rep max from a set (weight and reps).", OneRMRequest, _one_rm),
@@ -107,16 +180,41 @@ def _simplify(node):
     return node
 
 
+def _inline_refs(schema: dict) -> dict:
+    defs = schema.pop("$defs", {})
+
+    def walk(node):
+        if isinstance(node, dict):
+            if "$ref" in node:
+                return walk(defs[node["$ref"].split("/")[-1]])
+            return {k: walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [walk(x) for x in node]
+        return node
+
+    return walk(schema)
+
+
 def tool_specs() -> list[dict]:
     return [
         {"type": "function", "function": {
-            "name": t.name, "description": t.description, "parameters": _simplify(t.model.model_json_schema())}}
+            "name": t.name, "description": t.description,
+            "parameters": _simplify(_inline_refs(t.model.model_json_schema()))}}
         for t in TOOLS.values()
     ]
 
 
 def execute_tool(user_id: str, name: str, raw_args) -> str:
     """Validate and run a tool; always returns a JSON string (errors are returned, not raised)."""
+    with span(f"tool.{name}", tool=name) as sp:
+        result = _execute_tool(user_id, name, raw_args)
+        sp.set(ok=not result.startswith('{"error"'))
+        if content_enabled():
+            sp.set(arguments=raw_args if isinstance(raw_args, str) else json.dumps(raw_args, default=str), result=result[:2000])
+        return result
+
+
+def _execute_tool(user_id: str, name: str, raw_args) -> str:
     tool = TOOLS.get(name)
     if tool is None:
         return json.dumps({"error": f"Unknown tool '{name}'", "available": list(TOOLS)})

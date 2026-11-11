@@ -1,0 +1,1 @@
+ijson   # only needed to re-run core.food_import on new USDA downloads

@@ -1,51 +1,346 @@
 [
-  {"id": "log_bench", "category": "tool_calling",
-   "prompt": "Bench pressed 80kg for 3 sets of 8 today",
-   "expect": {"tools_called": [{"name": "log_workout", "args": {"exercise": {"contains": "bench"}, "sets": 3, "reps": 8, "weight_kg": {"approx": 80}}}],
-              "db": {"workouts": 1}}},
-  {"id": "log_bodyweight", "category": "tool_calling",
-   "prompt": "Did 4 sets of 12 pushups this morning",
-   "expect": {"tools_called": [{"name": "log_workout", "args": {"exercise": {"contains": "push"}, "sets": 4, "reps": 12, "weight_kg": {"approx": 0, "tol": 0.1, "optional": true}}}]}},
-  {"id": "log_two_exercises", "category": "tool_calling",
-   "prompt": "Squats 100kg 5x5 and then deadlifts 120kg 3x5",
-   "expect": {"tools_called": [{"name": "log_workout", "args": {"exercise": {"contains": "squat"}, "sets": 5, "reps": 5, "weight_kg": {"approx": 100}}},
-                               {"name": "log_workout", "args": {"exercise": {"contains": "deadlift"}, "sets": 3, "reps": 5, "weight_kg": {"approx": 120}}}],
-              "db": {"workouts": 2}}},
-  {"id": "log_cardio", "category": "tool_calling",
-   "prompt": "I went for a 30 minute run",
-   "expect": {"tools_called": [{"name": "log_workout", "args": {"exercise": {"contains": "run"}, "duration_min": {"approx": 30}}}]}},
-  {"id": "log_meal_explicit", "category": "tool_calling",
-   "prompt": "Lunch was a chicken salad, about 450 calories and 40g of protein",
-   "expect": {"tools_called": [{"name": "log_meal", "args": {"calories": {"approx": 450, "tol": 1}, "protein_g": {"approx": 40, "tol": 1}}}],
-              "db": {"meals": 1}}},
-  {"id": "log_meal_estimated", "category": "tool_calling",
-   "prompt": "I ate two eggs and a slice of toast for breakfast",
-   "expect": {"tools_called": [{"name": "log_meal", "args": {"calories": {"min": 150, "max": 700}}}]}},
-  {"id": "set_profile", "category": "tool_calling",
-   "prompt": "I'm a 30 year old male, 180cm, 80kg, moderately active, and I want to build muscle",
-   "expect": {"tools_called": [{"name": "update_profile", "args": {"age": 30, "sex": "male", "height_cm": {"approx": 180}, "weight_kg": {"approx": 80}, "activity_level": "moderate", "goal": "build_muscle"}}]}},
-  {"id": "targets_with_profile", "category": "tool_calling",
-   "setup": {"profile": {"age": 30, "sex": "male", "height_cm": 180, "weight_kg": 80, "activity_level": "moderate", "goal": "maintain"}},
-   "prompt": "What should my daily calories and protein be?",
-   "expect": {"tools_called": [{"name": "calculate_targets"}], "tools_not_called": ["log_meal", "log_workout"], "grounded_numbers": true}},
-  {"id": "targets_missing_profile", "category": "tool_calling",
-   "prompt": "What should my daily calories be?",
-   "expect": {"allow_tool_errors": true, "grounded_numbers": true,
-              "reply_contains_any": ["age", "height", "weight", "tell me", "need to know"]}},
-  {"id": "one_rep_max", "category": "tool_calling",
-   "prompt": "My best set was 100kg for 5 reps. What's my estimated 1RM?",
-   "expect": {"tools_called": [{"name": "estimate_1rm", "args": {"weight_kg": {"approx": 100}, "reps": 5}}], "grounded_numbers": true}},
-  {"id": "weekly_progress", "category": "tool_calling",
-   "setup": {"workouts": [{"exercise": "bench press", "sets": 3, "reps": 8, "weight_kg": 80}]},
-   "prompt": "How did my week go?",
-   "expect": {"tools_called": [{"name": "get_progress_summary"}], "grounded_numbers": true}},
-  {"id": "chitchat_no_logging", "category": "tool_calling",
-   "prompt": "What's a good way to warm up before lifting?",
-   "expect": {"tools_not_called": ["log_workout", "log_meal", "update_profile"]}},
-  {"id": "future_plan_not_logged", "category": "tool_calling",
-   "prompt": "I'm planning to squat 100kg tomorrow",
-   "expect": {"tools_not_called": ["log_workout"]}},
-  {"id": "vague_workout_asks_details", "category": "tool_calling",
-   "prompt": "I worked out",
-   "expect": {"tools_not_called": ["log_workout"], "reply_contains_any": ["what", "which", "details", "exercise"]}}
+ {
+  "id": "log_bench",
+  "category": "tool_calling",
+  "prompt": "Bench pressed 80kg for 3 sets of 8 today",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "log_workout",
+     "args": {
+      "exercise": {
+       "contains": "bench"
+      },
+      "sets": 3,
+      "reps": 8,
+      "weight_kg": {
+       "approx": 80
+      }
+     }
+    }
+   ],
+   "db": {
+    "workouts": 1
+   }
+  }
+ },
+ {
+  "id": "log_bodyweight",
+  "category": "tool_calling",
+  "prompt": "Did 4 sets of 12 pushups this morning",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "log_workout",
+     "args": {
+      "exercise": {
+       "contains": "push"
+      },
+      "sets": 4,
+      "reps": 12,
+      "weight_kg": {
+       "approx": 0,
+       "tol": 0.1,
+       "optional": true
+      }
+     }
+    }
+   ]
+  }
+ },
+ {
+  "id": "log_two_exercises",
+  "category": "tool_calling",
+  "prompt": "Squats 100kg 5x5 and then deadlifts 120kg 3x5",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "log_workout",
+     "args": {
+      "exercise": {
+       "contains": "squat"
+      },
+      "sets": 5,
+      "reps": 5,
+      "weight_kg": {
+       "approx": 100
+      }
+     }
+    },
+    {
+     "name": "log_workout",
+     "args": {
+      "exercise": {
+       "contains": "deadlift"
+      },
+      "sets": 3,
+      "reps": 5,
+      "weight_kg": {
+       "approx": 120
+      }
+     }
+    }
+   ],
+   "db": {
+    "workouts": 2
+   }
+  }
+ },
+ {
+  "id": "log_cardio",
+  "category": "tool_calling",
+  "prompt": "I went for a 30 minute run",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "log_workout",
+     "args": {
+      "exercise": {
+       "contains": "run"
+      },
+      "duration_min": {
+       "approx": 30
+      }
+     }
+    }
+   ]
+  }
+ },
+ {
+  "id": "log_meal_explicit",
+  "category": "tool_calling",
+  "prompt": "Lunch was a chicken salad, about 450 calories and 40g of protein",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "log_meal",
+     "args": {
+      "calories": {
+       "approx": 450,
+       "tol": 1
+      },
+      "protein_g": {
+       "approx": 40,
+       "tol": 1
+      }
+     }
+    }
+   ],
+   "db": {
+    "meals": 1
+   },
+   "tools_not_called": [
+    "log_foods"
+   ]
+  }
+ },
+ {
+  "id": "log_foods_eggs_toast",
+  "category": "tool_calling",
+  "prompt": "I ate two eggs and a slice of toast for breakfast",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "search_food",
+     "args": {
+      "query": {
+       "contains": "egg"
+      }
+     }
+    },
+    {
+     "name": "search_food",
+     "args": {
+      "query": {
+       "contains": "toast"
+      }
+     }
+    },
+    {
+     "name": "log_foods"
+    }
+   ],
+   "db": {
+    "meals": 1
+   },
+   "tools_not_called": [
+    "log_meal"
+   ],
+   "grounded_numbers": true
+  }
+ },
+ {
+  "id": "set_profile",
+  "category": "tool_calling",
+  "prompt": "I'm a 30 year old male, 180cm, 80kg, moderately active, and I want to build muscle",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "update_profile",
+     "args": {
+      "age": 30,
+      "sex": "male",
+      "height_cm": {
+       "approx": 180
+      },
+      "weight_kg": {
+       "approx": 80
+      },
+      "activity_level": "moderate",
+      "goal": "build_muscle"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "id": "targets_with_profile",
+  "category": "tool_calling",
+  "setup": {
+   "profile": {
+    "age": 30,
+    "sex": "male",
+    "height_cm": 180,
+    "weight_kg": 80,
+    "activity_level": "moderate",
+    "goal": "maintain"
+   }
+  },
+  "prompt": "What should my daily calories and protein be?",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "calculate_targets"
+    }
+   ],
+   "tools_not_called": [
+    "log_meal",
+    "log_workout"
+   ],
+   "grounded_numbers": true
+  }
+ },
+ {
+  "id": "targets_missing_profile",
+  "category": "tool_calling",
+  "prompt": "What should my daily calories be?",
+  "expect": {
+   "allow_tool_errors": true,
+   "grounded_numbers": true,
+   "reply_contains_any": [
+    "age",
+    "height",
+    "weight",
+    "tell me",
+    "need to know"
+   ]
+  }
+ },
+ {
+  "id": "one_rep_max",
+  "category": "tool_calling",
+  "prompt": "My best set was 100kg for 5 reps. What's my estimated 1RM?",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "estimate_1rm",
+     "args": {
+      "weight_kg": {
+       "approx": 100
+      },
+      "reps": 5
+     }
+    }
+   ],
+   "grounded_numbers": true
+  }
+ },
+ {
+  "id": "weekly_progress",
+  "category": "tool_calling",
+  "setup": {
+   "workouts": [
+    {
+     "exercise": "bench press",
+     "sets": 3,
+     "reps": 8,
+     "weight_kg": 80
+    }
+   ]
+  },
+  "prompt": "How did my week go?",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "get_progress_summary"
+    }
+   ],
+   "grounded_numbers": true
+  }
+ },
+ {
+  "id": "chitchat_no_logging",
+  "category": "tool_calling",
+  "prompt": "What's a good way to warm up before lifting?",
+  "expect": {
+   "tools_not_called": [
+    "log_workout",
+    "log_meal",
+    "update_profile"
+   ]
+  }
+ },
+ {
+  "id": "future_plan_not_logged",
+  "category": "tool_calling",
+  "prompt": "I'm planning to squat 100kg tomorrow",
+  "expect": {
+   "tools_not_called": [
+    "log_workout"
+   ]
+  }
+ },
+ {
+  "id": "vague_workout_asks_details",
+  "category": "tool_calling",
+  "prompt": "I worked out",
+  "expect": {
+   "tools_not_called": [
+    "log_workout"
+   ],
+   "reply_contains_any": [
+    "what",
+    "which",
+    "details",
+    "exercise"
+   ]
+  }
+ },
+ {
+  "id": "log_foods_rice",
+  "category": "tool_calling",
+  "prompt": "I had a cup of cooked white rice for lunch",
+  "expect": {
+   "tools_called": [
+    {
+     "name": "search_food",
+     "args": {
+      "query": {
+       "contains": "rice"
+      }
+     }
+    },
+    {
+     "name": "log_foods"
+    }
+   ],
+   "db": {
+    "meals": 1
+   },
+   "tools_not_called": [
+    "log_meal"
+   ],
+   "grounded_numbers": true
+  }
+ }
 ]

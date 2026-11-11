@@ -1,0 +1,3 @@
+# Optional: ship traces to any OTLP backend (set OTEL_EXPORTER_OTLP_ENDPOINT)
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http

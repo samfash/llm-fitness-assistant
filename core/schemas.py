@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date as _date
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
 Goal = Literal["lose_fat", "maintain", "build_muscle"]
@@ -62,3 +62,29 @@ class OneRMRequest(BaseModel):
 
 class NoArgs(BaseModel):
     pass
+
+
+class FoodSearchRequest(BaseModel):
+    query: str = Field(..., min_length=2, max_length=100, description="Simple generic food name, e.g. 'egg' or 'rice cooked'")
+    limit: int = Field(5, ge=1, le=8, description="Number of candidates to return")
+
+
+class FoodItem(BaseModel):
+    fdc_id: int = Field(..., description="fdc_id taken from search_food results")
+    grams: float | None = Field(None, gt=0, le=3000, description="Amount in grams (use this OR portion)")
+    portion: str | None = Field(None, max_length=80, description="Portion label as listed by search_food, e.g. '1 large'")
+    quantity: float = Field(1, gt=0, le=50, description="How many of the portion, e.g. 2 for two large eggs")
+
+    @model_validator(mode="after")
+    def _need_amount(self):
+        if self.grams is None and not self.portion:
+            raise ValueError("provide grams, or a portion label with a quantity")
+        return self
+
+
+class LogFoodsRequest(BaseModel):
+    items: list[FoodItem] = Field(..., min_length=1, max_length=12)
+    meal: str | None = Field(None, max_length=100, description="Optional name, e.g. 'breakfast'")
+    date: str | None = Field(None, description="ISO date YYYY-MM-DD; defaults to today")
+
+    _d = field_validator("date")(_check_date)
