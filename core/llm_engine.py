@@ -19,8 +19,8 @@ load_env()  # must run before the module-level settings below are read
 log = logging.getLogger(__name__)
 
 HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
-REMOTE_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen3-32B")
-LOCAL_MODEL = os.getenv("LOCAL_MODEL", "Qwen/Qwen3-32B")
+REMOTE_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+LOCAL_MODEL = os.getenv("LOCAL_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 LORA_REPO = os.getenv("LORA_REPO")  # e.g. "sam351/fitness-lora" (must match LOCAL_MODEL's base)
 
 SYSTEM_PROMPT = (

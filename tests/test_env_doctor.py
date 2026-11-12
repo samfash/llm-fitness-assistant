@@ -58,19 +58,19 @@ def test_automatic_loading_can_be_disabled_but_explicit_path_still_works(tmp_pat
     monkeypatch.delenv("T_AUTO")
 
 
-def test_shipped_env_files_contain_only_placeholders_for_secrets():
-    for name in (".env", ".env.example"):
-        parsed = env.parse((ROOT / name).read_text())
-        assert {"HF_TOKEN", "DATABASE_URL"} <= set(parsed), name
-        assert all(env.PLACEHOLDER in parsed[k] for k in ("HF_TOKEN", "DATABASE_URL")), name
-        assert not any(v.startswith("hf_") and env.PLACEHOLDER not in v for v in parsed.values())
-        assert not any("neon.tech" in v and env.PLACEHOLDER not in v for v in parsed.values())
-    assert (ROOT / ".env").read_text() == (ROOT / ".env.example").read_text()
-    assert ".env\n" in (ROOT / ".gitignore").read_text() and ".env.example" not in (ROOT / ".gitignore").read_text()
+def test_shipped_env_template_contains_only_placeholders_for_secrets():
+    """Reads the committed .env.example only: the real .env is gitignored and must never be read by tests."""
+    parsed = env.parse((ROOT / ".env.example").read_text())
+    assert {"HF_TOKEN", "DATABASE_URL"} <= set(parsed)
+    assert all(env.PLACEHOLDER in parsed[k] for k in ("HF_TOKEN", "DATABASE_URL"))
+    assert not any(v.startswith("hf_") and env.PLACEHOLDER not in v for v in parsed.values())
+    assert not any("neon.tech" in v and env.PLACEHOLDER not in v for v in parsed.values())
+    gitignore = (ROOT / ".gitignore").read_text().splitlines()
+    assert ".env" in gitignore and ".env.example" not in gitignore
 
 
 def test_every_documented_variable_is_actually_read_by_the_code():
-    documented = set(env.parse((ROOT / ".env").read_text().replace("\n# ", "\n")).keys())
+    documented = set(env.parse((ROOT / ".env.example").read_text().replace("\n# ", "\n")).keys())
     code = " ".join(p.read_text() for p in list((ROOT / "core").rglob("*.py")) + [ROOT / "app.py", ROOT / "api" / "api_server.py",
                                                                                    ROOT / "ui" / "ui_streamlit.py"])
     external = {"OTEL_EXPORTER_OTLP_HEADERS", "OTEL_SERVICE_NAME"}  # consumed by the OpenTelemetry library itself
@@ -319,3 +319,28 @@ def test_readme_numbers_match_the_data():
     with open(ROOT / "fooddata" / "foods.csv", encoding="utf-8") as f:
         foods = sum(1 for _ in f) - 1
     assert f"{foods:,} foods" in _readme()
+
+
+# ---- .gitignore must hide only what it is meant to hide (a bare `data/` once hid evals/data/) ---------------
+def test_gitignore_hides_only_local_state_and_never_a_project_file(tmp_path):
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None:
+        pytest.skip("git is not installed")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    shutil.copy(ROOT / ".gitignore", tmp_path / ".gitignore")
+    skip_dirs = {".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "node_modules"}
+    files = [p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*")
+             if p.is_file() and not (set(p.relative_to(ROOT).parts) & skip_dirs) and not p.name.endswith(".pyc")]
+    assert "evals/data/food_qa.json" in files and "evals/data/retrieval_qa.json" in files
+    result = subprocess.run(["git", "-C", str(tmp_path), "check-ignore", "--stdin"], input="\n".join(files),
+                            capture_output=True, text=True)
+    ignored = set(result.stdout.split())
+    intended = lambda f: f == ".env" or f.startswith(("data/", "evals/results/")) or f.startswith("traces")  # noqa: E731
+    wrongly = sorted(f for f in ignored if not intended(f))
+    assert not wrongly, f".gitignore would keep these project files out of git: {wrongly}"
+    # and the local state it is meant to hide really is hidden
+    hidden = subprocess.run(["git", "-C", str(tmp_path), "check-ignore", "--stdin"], capture_output=True, text=True,
+                            input=".env\ndata/fitness.db\nevals/results/latest.json\ntraces.jsonl\ncore/__pycache__/x.pyc\n").stdout.split()
+    assert len(hidden) == 5

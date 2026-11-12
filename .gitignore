@@ -1,3 +1,4 @@
+# local SQLite database folder (repo root only: a bare 'data/' would also hide evals/data/)
 /data/
 __pycache__/
 *.pyc
@@ -6,6 +7,4 @@ __pycache__/
 .ruff_cache/
 evals/results/
 traces*.jsonl
-.env copy
 .venv/
-
