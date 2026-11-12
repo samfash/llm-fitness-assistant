@@ -8,4 +8,3 @@ __pycache__/
 evals/results/
 traces*.jsonl
 .venv/
-.venv
