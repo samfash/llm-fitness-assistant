@@ -1,0 +1,311 @@
+[
+ {
+  "query": "egg",
+  "accept": [
+   "^Egg, whole"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "boiled egg",
+  "accept": [
+   "^Egg, whole, (boiled|cooked, hard)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "fried egg",
+  "accept": [
+   "^Egg, whole, fried"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "scrambled eggs",
+  "accept": [
+   "scrambled"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "white rice cooked",
+  "accept": [
+   "^Rice, white,.*cooked"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "brown rice",
+  "accept": [
+   "^Rice, brown"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "chicken breast grilled",
+  "accept": [
+   "^Chicken.*breast.*(grilled|broiled)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "banana",
+  "accept": [
+   "^Bananas?, raw"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "apple",
+  "accept": [
+   "^Apples?, raw"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "oatmeal",
+  "accept": [
+   "^(Oatmeal|Cereal.*oatmeal|Cereals.*oats|Oats)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "whole milk",
+  "accept": [
+   "^Milk, (whole|fluid, whole)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "white bread",
+  "accept": [
+   "^Bread, white"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "toast",
+  "accept": [
+   "^(Bread.*toasted|Toast)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "peanut butter",
+  "accept": [
+   "^Peanut butter"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "greek yogurt",
+  "accept": [
+   "^Yogurt, Greek"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "baked salmon",
+  "accept": [
+   "^(Fish, salmon|Salmon).*(baked|cooked)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "broccoli cooked",
+  "accept": [
+   "^Broccoli, (cooked|boiled)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "baked sweet potato",
+  "accept": [
+   "^Sweet potato.*baked"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "almonds",
+  "accept": [
+   "^(Nuts, almonds|Almonds)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "olive oil",
+  "accept": [
+   "^Oil, olive|^Olive oil"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "french fries",
+  "accept": [
+   "^Potato, french fries, (NFS|NS as to|from|fast food|restaurant)",
+   "french fries$"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "orange juice",
+  "accept": [
+   "^Orange juice"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "cheddar cheese",
+  "accept": [
+   "^Cheese, cheddar"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "ground beef cooked",
+  "accept": [
+   "^(Beef, ground|Ground beef)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "cottage cheese",
+  "accept": [
+   "^Cheese, cottage"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "lentils cooked",
+  "accept": [
+   "^Lentils.*(cooked|boiled)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "tofu",
+  "accept": [
+   "^Tofu"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "avocado",
+  "accept": [
+   "^Avocados?"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "cooked pasta",
+  "accept": [
+   "^(Pasta|Spaghetti|Macaroni).*cooked"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "pancakes",
+  "accept": [
+   "^Pancakes"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "bacon",
+  "accept": [
+   "^Bacon"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "pizza",
+  "accept": [
+   "^Pizza"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "cheeseburger",
+  "accept": [
+   "^(Cheeseburger|Fast foods, cheeseburger)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "caesar salad",
+  "accept": [
+   "^(Salad, Caesar|Caesar salad)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "canned tuna",
+  "accept": [
+   "^(Fish, tuna|Tuna).*(canned|light|white)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "ice cream",
+  "accept": [
+   "^Ice cream"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "hummus",
+  "accept": [
+   "^Hummus"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "chocolate chip cookie",
+  "accept": [
+   "^Cookie.*chocolate chip|^Cookies, chocolate chip"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "burrito",
+  "accept": [
+   "^Burrito"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "tomato soup",
+  "accept": [
+   "^Soup, tomato"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "cooked quinoa",
+  "accept": [
+   "^Quinoa"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "black coffee",
+  "accept": [
+   "^Coffee, (brewed|black|regular)"
+  ],
+  "split": "test"
+ },
+ {
+  "query": "beer",
+  "accept": [
+   "^(Beer|Alcoholic beverage, beer)"
+  ],
+  "split": "dev"
+ },
+ {
+  "query": "cola",
+  "accept": [
+   "^(Soft drink, cola|Cola|Carbonated beverage, cola|Soft drink.*cola)"
+  ],
+  "split": "test"
+ }
+]
